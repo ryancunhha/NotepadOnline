@@ -1,8 +1,8 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./layout/layout";
 
-import Home from "./pages/home/home";
-import Notepad from "./pages/notepad/notepad";
+import Home from "./pages/home";
+import Notepad from "./pages/notepad";
 
 function App() {
   return (
