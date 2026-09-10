@@ -22,10 +22,8 @@ app.use(express.json())
 
 app.post("/api/save", SavarNotas)
 
-app.get("/api/get", PegarNotas)
+app.get("/api/pegar", PegarNotas)
 
 app.post("/api/desbloquear", desbloquearLimiter,Desbloquear)
 
-app.listen(3000, () => {
-    console.log("http://localhost:3000")
-})
+export default app

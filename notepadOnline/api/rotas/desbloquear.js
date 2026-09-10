@@ -8,13 +8,11 @@ export default async function Desbloquear(req, res) {
     const slugLimpo = slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, "");
 
     try {
-        const dataString = await redis.get(slugLimpo);
+        const db = await redis.get(slugLimpo);
 
-        if (!dataString) {
-            return res.status(404).json({ error: "Nota não encontrada" });
-        }
+        if (!db) return res.status(404).json({ error: "Nota não encontrada" });
 
-        const data = JSON.parse(dataString);
+        const data = JSON.parse(db);
 
         const senhaValida = await verificarSenha(senha, data.senha);
 
@@ -23,7 +21,6 @@ export default async function Desbloquear(req, res) {
         }
 
         return res.status(200).json({
-            sucesso: true,
             conteudo: data.conteudo
         });
     } catch (error) {

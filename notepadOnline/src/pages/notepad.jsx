@@ -6,6 +6,7 @@ export default function Notepad() {
     const { slug } = useParams();
     const navigate = useNavigate();
 
+    const [carregando, setCarregar] = useState(true)
     const [text, setText] = useState("");
     const [novaUrl, setNovaUrl] = useState(slug);
     const [senha, setSenha] = useState("");
@@ -16,8 +17,10 @@ export default function Notepad() {
 
     useEffect(() => {
         async function carregarNota() {
+            setCarregar(true)
+
             try {
-                const res = await fetch(`/api/get?slug=${encodeURIComponent(slug)}`);
+                const res = await fetch(`/api/pegar?slug=${encodeURIComponent(slug)}`);
                 const data = await res.json();
 
                 if (res.status === 404 || !data.existe) {
@@ -30,11 +33,13 @@ export default function Notepad() {
                 if (data.protegido) {
                     setBloqueadoPorSenha(true);
                 } else {
-                    setText(data.conteudo || data.content || "");
+                    setText(data.conteudo || "");
                     setBloqueadoPorSenha(false);
                 }
             } catch (err) {
                 console.error("Erro ao carregar:", err);
+            } finally {
+                setCarregar(false)
             }
         }
 
@@ -48,48 +53,47 @@ export default function Notepad() {
             const res = await fetch("/api/save", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ slug, conteudo: text, senha: senha, senhaOriginal })
+                body: JSON.stringify({ slug, conteudo: text, senha: senhaOriginal, novaSenha: senha })
             });
 
             if (!res.ok) {
-                alert("⚠️ Erro de permissão: Você não pode alterar a senha desta nota.");
+                alert("Você não pode alterar a senha desta nota.");
                 return;
             }
 
             setSenhaOriginal(senha);
 
             if (senha) {
-                alert("✅ Senha salva com sucesso!");
+                alert("Senha salva com sucesso!");
             } else {
-                alert("🔓 Senha removida! A nota agora é pública.");
+                alert("Senha removida! A nota agora é pública.");
             }
-        } catch (err) {
-            console.error("Erro ao salvar a senha.");
+        } catch (error) {
+            console.error("Algo deu errado", error);
         }
     };
 
-    const DesbloquearComSenha = async () => {
+    const desbloquear = async () => {
         if (!senhaDigitada) return alert("Digite a senha!");
 
         try {
             const res = await fetch(`/api/desbloquear`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ slug, senha: senhaDigitada })
+                body: JSON.stringify({ slug, senha: senhaDigitada, novaSenha: senha })
             });
 
             const data = await res.json();
 
-            if (res.ok && data.sucesso) {
-                setText(data.conteudo || "");
-                setSenha(senhaDigitada);
-                setSenhaOriginal(senhaDigitada);
+            if (res.ok) {
+                setText(data.conteudo);
                 setBloqueadoPorSenha(false);
+                setSenhaOriginal(senhaDigitada)
             } else {
                 alert("Senha incorreta!");
             }
-        } catch (err) {
-            console.error("Erro ao validar senha");
+        } catch (error) {
+            console.error("Algo deu errado", error);
         }
     };
 
@@ -106,49 +110,47 @@ export default function Notepad() {
                 const res = await fetch("/api/save", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ slug, conteudo: novoTexto, senhaOriginal })
+                    body: JSON.stringify({ slug, conteudo: novoTexto, senha: senhaOriginal })
                 });
 
                 if (res.status === 429) {
-                    console.log("save muito frequente")
+                    console.log("Save muito frequente")
                     return
                 }
 
                 if (!res.ok) {
                     console.log("erro ao salvar")
                 }
-            } catch (err) {
-                console.error("Erro ao salvar o texto");
+            } catch (error) {
+                console.error("Algo deu errado", error);
             }
-        }, 1000);
+        }, 3000);
     };
 
     const MudarUrl = async () => {
-        const urlLimpa = novaUrl.trim().replace(/\s+/g, "-").toLowerCase();
+        const slugNovo = novaUrl.trim().replace(/\s+/g, "-").toLowerCase();
 
-        if (!urlLimpa || urlLimpa === slug) return;
+        if (!slugNovo || slugNovo === slug) return
 
         try {
             const res = await fetch("/api/save", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ slug: urlLimpa, conteudo: text, slugAntigo: slug, senhaOriginal })
+                body: JSON.stringify({ slug: slugNovo, conteudo: text, slugAntigo: slug, senha: senhaOriginal })
             });
 
             const data = await res.json();
 
             if (!res.ok) {
-                if (data.error) {
-                    alert("⚠️ Esse nome já está em uso! Escolha outra URL.");
-                }
-
-                return;
+                if (data.error) alert("Essa URL já está em uso! Escolha outra URL.");
+                return
             }
 
-            alert("✅ URL alterada com sucesso!");
-            navigate(`/${urlLimpa}`);
-        } catch (err) {
-            alert("Erro ao mudar a URL");
+            alert("URL alterada com sucesso!");
+            navigate(`/${data.slug}`);
+        } catch (error) {
+            alert("Algo deu errado")
+            console.error("Algo deu errado", error);
         }
     };
 
@@ -157,21 +159,23 @@ export default function Notepad() {
         alert("Link copiado: " + window.location.href);
     }
 
+    if (carregando) return <div></div>
+
     if (!existe) {
         return (
-            <p className="text-center text-3xl font-bold text-gray-800">Página Não Encontrada!</p>
+            <p className="text-center text-3xl font-bold text-gray-800 mt-10">Página Não Encontrada!</p>
         )
     }
 
     if (bloqueadoPorSenha) {
         return (
-            <div className="flex flex-col p-4">
-                <h1 className="text-2xl font-bold text-gray-800 mb-4">Esta página é protegida por senha</h1>
+            <div className="flex flex-col p-4 mt-10">
+                <h1 className="text-2xl font-bold text-gray-800 mb-4 text-center">Esta página é protegida por senha</h1>
 
                 <div className="flex justify-between border border-gray-400 overflow-hidden rounded bg-white">
                     <input id="password" type="password" value={senhaDigitada} onChange={(e) => setSenhaDigitada(e.target.value)} className="p-2 outline-none" placeholder="Digite a senha" />
 
-                    <button type="button" onClick={DesbloquearComSenha} className="bg-gray-800 text-white px-4 font-bold">
+                    <button type="button" onClick={desbloquear} className="bg-gray-800 text-white px-4 font-bold">
                         Acessar
                     </button>
                 </div>
